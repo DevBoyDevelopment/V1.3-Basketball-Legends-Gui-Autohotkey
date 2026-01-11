@@ -1,0 +1,206 @@
+#Persistent
+#SingleInstance Force
+CoordMode, ToolTip, Screen
+
+global StartKey := "T"
+global ExitKey := "Y"
+global ShotKey := "E"
+global MinShot := 340
+global MaxShot := 355
+global Paused := false
+
+global TotalShots := 0
+global FastestShot := 9999
+global SlowestShot := 0
+global TotalShotTime := 0
+global PauseCount := 0
+global StartTime := A_TickCount
+
+global TooltipX := 0
+global TooltipY := 150
+
+Hotkey, %StartKey%, DoShot
+Hotkey, %ExitKey%, DoExit
+Hotkey, F8, OpenSettings
+
+ShowTooltips()
+OpenSettings()
+return
+
+ShowTooltips() {
+    global TooltipX, TooltipY
+    global StartKey, ExitKey, ShotKey, MinShot, MaxShot, Paused
+    global TotalShots, FastestShot, SlowestShot, TotalShotTime, PauseCount, StartTime
+
+    if (TotalShots > 0)
+        avg := TotalShotTime // TotalShots
+    else
+        avg := 0
+
+    uptime := (A_TickCount - StartTime) // 1000
+
+    if (Paused) {
+        main := "SCRIPT PAUSED — Press Resume.`nPress """ ExitKey """ to exit.`n`n"
+    } else {
+        main := "Press """ StartKey """ to shoot " ShotKey " for " MinShot "–" MaxShot " ms.`nPress """ ExitKey """ to exit.`n`n"
+    }
+
+    stats := "Shots: " TotalShots "`nAvg Time: " avg " ms`nFastest: " FastestShot " ms`nSlowest: " SlowestShot " ms`nPaused: " PauseCount "`nUptime: " uptime "s"
+
+    tooltip, % main stats, %TooltipX%, %TooltipY%, 1
+}
+
+DoShot:
+    global Paused, ShotKey, MinShot, MaxShot
+    global TotalShots, FastestShot, SlowestShot, TotalShotTime
+
+    if (Paused)
+        return
+
+    Random, shotTime, %MinShot%, %MaxShot%
+
+    TotalShots++
+    TotalShotTime += shotTime
+    if (shotTime < FastestShot)
+        FastestShot := shotTime
+    if (shotTime > SlowestShot)
+        SlowestShot := shotTime
+
+    tooltip, Shooting for %shotTime% ms..., %TooltipX%, %TooltipY%, 1
+
+    Send, {%ShotKey% down}
+    Sleep, shotTime
+    Send, {%ShotKey% up}
+
+    ShowTooltips()
+return
+
+DoExit:
+    tooltip,,,,1
+    tooltip,,,,2
+    tooltip,,,,3
+    ExitApp
+return
+
+OpenSettings() {
+    global StartKey, ExitKey, ShotKey, MinShot, MaxShot, Paused
+
+    Gui, Destroy
+    Gui, +AlwaysOnTop +ToolWindow -Caption +Border
+
+    Width := 420
+    Height := 300
+
+    hbm := CreateGradientBitmap(Width, Height, 0x000000, 0x444444)
+    Gui, Add, Picture, x0 y0 w%Width% h%Height% 0xE, HBITMAP:%hbm%
+
+    Gui, Add, Text, x0 y0 w420 h30 gDragWindow BackgroundTrans
+
+    Gui, Font, cFFFFFF s12 Bold, Segoe UI
+    Gui, Add, Text, x20 y15 w360 h30 Center BackgroundTrans, DevBoyDevelopment Basketball Macro
+
+    Gui, Font, c000000 s10, Segoe UI
+    yBase := 70
+
+    Gui, Add, Text, x30 y%yBase% BackgroundTrans, Start Key:
+    Gui, Add, Edit, x150 y%yBase% w120 vStartKeyInput, %StartKey%
+    yBase += 30
+
+    Gui, Add, Text, x30 y%yBase% BackgroundTrans, Exit Key:
+    Gui, Add, Edit, x150 y%yBase% w120 vExitKeyInput, %ExitKey%
+    yBase += 30
+
+    Gui, Add, Text, x30 y%yBase% BackgroundTrans, Shot Key:
+    Gui, Add, Edit, x150 y%yBase% w120 vShotKeyInput, %ShotKey%
+    yBase += 30
+
+    Gui, Add, Text, x30 y%yBase% BackgroundTrans, Min Shot (ms):
+    Gui, Add, Edit, x150 y%yBase% w120 vMinShotInput, %MinShot%
+    yBase += 30
+
+    Gui, Add, Text, x30 y%yBase% BackgroundTrans, Max Shot (ms):
+    Gui, Add, Edit, x150 y%yBase% w120 vMaxShotInput, %MaxShot%
+    yBase += 40
+
+    Gui, Add, Button, x30 y%yBase% w120 h30 gSaveConfig, Save Settings
+
+    if (Paused)
+        Gui, Add, Button, x160 y%yBase% w120 h30 gResumeScript, Resume
+    else
+        Gui, Add, Button, x160 y%yBase% w120 h30 gPauseScript, Pause
+
+    Gui, Add, Button, x290 y%yBase% w90 h30 gCloseSettings, Close
+
+    yBase += 40
+    Gui, Add, Button, x30 y%yBase% w350 h30 gJoinDiscord, Join the DevBoy Discord
+
+    Gui, Show, w420 h300, DevBoyDevelopment Basketball GUI
+}
+
+SaveConfig:
+    Gui, Submit, NoHide
+    StartKey := StartKeyInput
+    ExitKey := ExitKeyInput
+    ShotKey := ShotKeyInput
+    MinShot := MinShotInput
+    MaxShot := MaxShotInput
+    Hotkey, %StartKey%, DoShot
+    Hotkey, %ExitKey%, DoExit
+    ShowTooltips()
+return
+
+PauseScript:
+    global Paused, PauseCount
+    Paused := true
+    PauseCount++
+    ShowTooltips()
+    OpenSettings()
+return
+
+ResumeScript:
+    global Paused
+    Paused := false
+    ShowTooltips()
+    OpenSettings()
+return
+
+CloseSettings:
+    Gui, Destroy
+return
+
+JoinDiscord:
+    Run, https://discord.gg/afBRRg577n
+return
+
+DragWindow:
+    PostMessage, 0xA1, 2,,, A
+return
+
+CreateGradientBitmap(w, h, colorTop, colorBottom) {
+    VarSetCapacity(bi, 40, 0)
+    NumPut(40, bi, 0, "UInt")
+    NumPut(w, bi, 4, "Int")
+    NumPut(-h, bi, 8, "Int")
+    NumPut(1, bi, 12, "UShort")
+    NumPut(32, bi, 14, "UShort")
+
+    hdc := DllCall("GetDC", "ptr", 0, "ptr")
+    hbm := DllCall("CreateDIBSection", "ptr", hdc, "ptr", &bi, "uint", 0, "ptr*", ppvBits, "ptr", 0, "uint", 0, "ptr")
+    DllCall("ReleaseDC", "ptr", 0, "ptr", hdc)
+
+    Loop, %h% {
+        y := A_Index - 1
+        ratio := y / (h - 1)
+
+        r := Round(((colorBottom & 0xFF) * ratio) + ((colorTop & 0xFF) * (1 - ratio)))
+        g := Round((((colorBottom >> 8) & 0xFF) * ratio) + (((colorTop >> 8) & 0xFF) * (1 - ratio)))
+        b := Round((((colorBottom >> 16) & 0xFF) * ratio) + (((colorTop >> 16) & 0xFF) * (1 - ratio)))
+
+        color := (b << 16) | (g << 8) | r
+
+                Loop, %w% {
+            NumPut(color, ppvBits + ((y * w + (A_Index - 1)) * 4), "UInt")
+        }
+    }
+    return hbm
+}
